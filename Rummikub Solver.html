@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rummikub Solver</title>
+<style>
+:root{--bg:#f4f1ea;--panel:#fff;--text:#222;--muted:#666;--line:#d8d2c4;--btn:#2563eb;--ok:#16a34a;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15171c;--panel:#20232b;--text:#eee;--muted:#9aa0ab;--line:#353a46}}
+:root[data-theme="dark"]{--bg:#15171c;--panel:#20232b;--text:#eee;--muted:#9aa0ab;--line:#353a46}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px system-ui,"Noto Sans Thai",sans-serif}
+.wrap{max-width:1400px;margin:0 auto;padding:14px;display:grid;grid-template-columns:minmax(0,1fr) 210px;gap:14px}
+@media(max-width:760px){.wrap{grid-template-columns:1fr}}
+h1{font-size:18px;margin:0 0 4px}
+.hint{color:var(--muted);font-size:13px;margin:0 0 10px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:12px}
+.panel h2{font-size:14px;margin:0 0 8px;display:flex;justify-content:space-between}
+.zone{border-radius:8px;padding:8px;display:flex;flex-wrap:wrap;gap:5px;align-content:flex-start}
+main{min-width:0}
+#boardwrap{overflow-x:auto;border-radius:8px;background:#1f3a8a;padding:6px}
+#board{position:relative;display:block;padding:0;background:transparent}
+.cell{position:absolute;width:40px;height:52px;border-radius:5px;background:rgba(255,255,255,.08)}
+.hov{position:absolute;width:40px;height:52px;border:2px dashed #fbbf24;border-radius:5px;pointer-events:none;z-index:3}
+.gbox{position:absolute;border:2px solid;border-radius:8px;pointer-events:none;z-index:1}
+.gbox.ok{border-color:#22c55e}.gbox.bad{border-color:#ef4444;border-style:dashed}
+#board .tile{position:absolute;z-index:2}
+#rack{background:#7a4d22;min-height:80px}
+.zone.over{outline:3px dashed #fbbf24}
+.tile{width:38px;height:50px;border-radius:6px;background:#f6ead2;display:flex;align-items:center;justify-content:center;
+font:800 21px system-ui;cursor:grab;user-select:none;touch-action:none;box-shadow:0 1px 0 #b9a77f,0 2px 3px rgba(0,0,0,.3)}
+.tile.hl{background:#86efac;outline:3px solid #16a34a}
+.tile.new{background:#86efac;outline:3px solid #16a34a}
+.tile.fromb{background:#bfdbfe;outline:2px solid #3b82f6}
+.tile.lift{outline:3px solid #fbbf24}
+.ghost{position:fixed;z-index:99;pointer-events:none;opacity:.9;transform:translate(-50%,-50%) scale(1.1)}
+#pal{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;justify-items:center}
+#pal .tile{width:34px;height:44px;font-size:18px}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+button{border:0;border-radius:8px;padding:10px 18px;font:600 15px inherit;font-family:inherit;cursor:pointer;background:var(--btn);color:#fff}
+button.sec{background:transparent;color:var(--text);border:1px solid var(--line)}
+#msg{color:var(--muted);font-size:13px}
+.grp{display:flex;gap:3px;padding:5px;border-radius:8px;background:#1f3a8a}
+#sets{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+#res .big{font-size:16px;font-weight:700}
+#palp.add{outline:3px solid #22c55e;outline-offset:2px}#palp.add .tile{cursor:pointer}
+#boardwrap.gmode{outline:3px solid #22c55e;outline-offset:2px}#boardwrap.gmode .tile{cursor:move}
+.gghost{position:fixed;z-index:99;pointer-events:none;opacity:.85;display:flex;gap:6px}
+.lockb{background:#f59e0b;color:#111;border:3px solid #b45309;font-size:16px;font-weight:800;padding:10px 22px;box-shadow:0 2px 0 #b45309}
+.lockb.on{background:#dc2626;color:#fff;border-color:#7f1d1d;box-shadow:0 0 0 4px rgba(220,38,38,.35)}
+button:disabled{opacity:.4;cursor:not-allowed}
+#res.locked{outline:3px solid #dc2626;outline-offset:2px}
+#vprev.locked{outline:3px solid #dc2626;outline-offset:2px}
+.vrow{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
+#vprev{flex:0 1 380px;min-width:240px}
+#pvwrap{flex:1 1 560px;min-width:320px}
+#pvb{position:relative;overflow:auto;background:#1f3a8a;border-radius:8px;padding:4px;max-height:420px}
+#pvb .inner{position:relative}
+.ptile{position:absolute;z-index:2;width:24px;height:31px;border-radius:4px;background:#f6ead2;display:flex;align-items:center;justify-content:center;font:800 13px system-ui;box-shadow:0 1px 0 #b9a77f}
+.ptile.keep{opacity:.5}.ptile.stay{outline:2px solid #f59e0b}
+.ptile.move{background:#bfdbfe;outline:2px solid #3b82f6}.ptile.new{background:#86efac;outline:2px solid #16a34a}
+.pghost{position:absolute;z-index:1;width:24px;height:31px;border:2px dashed #fca5a5;border-radius:4px}
+.pgbox{position:absolute;z-index:0;border:1px solid rgba(255,255,255,.35);border-radius:5px}
+#pvb{max-height:520px}
+.ptile.dim{background:#f6ead2;opacity:.25;outline:none}
+.pbadge{position:absolute;z-index:5;min-width:18px;height:18px;border-radius:9px;background:#111;color:#fde047;font:700 12px system-ui;display:flex;align-items:center;justify-content:center;padding:0 4px;pointer-events:none;border:1.5px solid #fde047}
+.pax{position:absolute;color:#cbd5e1;font:11px system-ui;text-align:center}
+.pvctl{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0 0 6px;font-size:13px}
+.pvctl button{padding:4px 10px;font-size:13px}
+#pvsteps{max-height:280px;overflow:auto}
+.pst{display:flex;gap:8px;align-items:flex-start;padding:6px 8px;border:1px solid var(--line);border-radius:8px;margin-top:6px;cursor:pointer;font-size:13px}
+.pst.on{border-color:#f59e0b;background:rgba(245,158,11,.14)}
+.pn{background:#111;color:#fde047;border-radius:50%;min-width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:700;flex:none}
+.chip{display:inline-flex;width:20px;height:26px;border-radius:3px;background:#f6ead2;align-items:center;justify-content:center;font:800 12px system-ui;margin-right:2px;box-shadow:0 1px 0 #b9a77f}
+.chip.new{background:#86efac}.chip.move{background:#bfdbfe}
+#pvwrap.full{position:fixed;inset:0;z-index:200;background:var(--bg);padding:14px;overflow:auto;max-width:none;min-width:0}
+#pvwrap.full #pvb{max-height:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+<main>
+  <h1>Rummikub Solver</h1>
+  <p class="hint">ลากการ์ดจากขวามาวางใน Board (ช่องกริด วางตรงไหนก็ได้) หรือ Rack · การ์ดติดกันในแถวเดียวกัน = 1 กลุ่ม เว้น 1 ช่อง = แยกกลุ่ม · ลากออกนอกกรอบ หรือคลิกที่การ์ด = ลบ · กดค้างที่การ์ดบน Board 2 วิ = ยกทั้งกลุ่ม</p>
+  <div class="panel"><h2><span>Board (บนโต๊ะ) <button id="baddbtn" class="sec" style="padding:3px 12px;font-size:13px;margin-left:6px">Add</button> <button id="grpbtn" class="sec" style="padding:3px 12px;font-size:13px">Group</button></span><span><span id="bc">0</span> แผ่น</span></h2><div id="boardwrap"><div id="board" class="zone" data-zone="board"></div></div><div id="gstat" class="hint" style="margin:6px 0 0"></div></div>
+  <div class="panel"><h2><span>Rack (ของเรา) <button id="addbtn" class="sec" style="padding:3px 12px;font-size:13px;margin-left:6px">Add</button> <button id="gobtn" hidden style="padding:3px 12px;font-size:13px">Go</button></span><span><span id="rc">0</span> แผ่น</span></h2><div id="rack" class="zone" data-zone="rack"></div></div>
+  <div class="panel" id="vis"><h2><span>อ่านจากหน้าจอ</span><span id="vst" style="font-weight:400;font-size:13px;color:var(--muted)"></span></h2>
+<div class="bar" style="margin-bottom:8px"><button id="vstart">แชร์จอ</button><button id="vstop" class="sec" hidden>หยุด</button>
+<label style="font-size:13px">ความถี่ <select id="vint"><option value="250">0.25 วิ</option><option value="500">0.5 วิ</option><option value="1000" selected>1 วิ</option><option value="2000">2 วิ</option><option value="5000">5 วิ</option></select></label>
+<label style="font-size:13px"><input type="checkbox" id="vauto"> Solve อัตโนมัติ</label>
+<label class="hint" style="margin:0">หรืออัปโหลด/วางภาพ (Ctrl+V) <input type="file" id="vfile" accept="image/*"></label></div>
+<div class="vrow"><canvas id="vprev" width="560" height="0" style="max-width:100%;height:auto;border-radius:8px"></canvas>
+<div id="pvwrap" hidden><div class="hint" style="margin:0 0 4px"><b>บอร์ดหลัง Solve (ตัวอย่าง)</b></div><div class="pvctl"><button class="sec" id="pvback">◀</button><span id="pvstep">ทั้งหมด</span><button class="sec" id="pvfwd">▶</button><button class="sec" id="pvall">ทั้งหมด</button><label>ซูม <input type="range" id="pvzoom" min="24" max="64" value="40"></label><label><input type="checkbox" id="pvarr"> ลูกศรทั้งหมด</label><button class="sec" id="pvfull">⛶ ขยาย</button></div><div id="pvb"></div><div id="pvleg" class="hint" style="margin:6px 0 0"></div><div id="pvsteps"></div></div></div></div>
+<div class="bar"><button id="solve">Solve</button><button id="lockbtn" class="lockb">🔓 Lock Solve</button><button class="sec" id="clear">ล้างทั้งหมด</button><span id="msg"></span></div>
+  <div class="panel" id="res" hidden></div>
+</main>
+<aside class="panel" id="palp"><h2>การ์ดให้เลือก</h2><div id="pal"></div></aside>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/javascript-lp-solver@0.4.24/prod/solver.js"></script>
+<script>
+const HEX=['#d62828','#1d4ed8','#111111','#e08a00'];
+const $=id=>document.getElementById(id);
+let board=[],rack=[],hl=[];
+const key=t=>t.n===0?52:t.c*13+t.n-1; // n=0 คือโจ๊กเกอร์ (id 52)
+const sortA=a=>a.sort((x,y)=>key(x)-key(y));
+
+function tileEl(t,src,i,cls){
+  const d=document.createElement('div');
+  d.className='tile'+(cls||'');d.style.color=HEX[t.c];d.textContent=t.n?t.n:'★';
+  d.dataset.src=src;d.dataset.i=i;d.dataset.c=t.c;d.dataset.n=t.n;return d;
+}
+// palette: 4 columns by color, 1-13 down
+for(let n=1;n<=13;n++)for(let c=0;c<4;c++)$('pal').append(tileEl({c,n},'pal',0));
+for(let c=0;c<4;c++)$('pal').append(tileEl({c,n:0},'pal',0)); // โจ๊กเกอร์แต่ละสี (ใช้แทนได้ทุกเลขทุกสี)
+
+function fill(z,arr){const el=$(z);el.innerHTML='';arr.forEach((t,i)=>{const e=tileEl(t,z,i,z==='rack'&&hl[i]?' hl':'');if(z==='rack'&&rackGap.has(i))e.style.marginLeft='18px';el.append(e);});}
+const COLS=80,ROWS=40,PX=44,PY=56; // ขีดจำกัดในตรรกะ ส่วนกริดที่แสดงจะขยายตามการ์ดlet boardBad=0;
+const bEl=$('board');let GC=0,GR=0;
+// กริดขยาย/หดตามตำแหน่งการ์ดไกลสุด (เพิ่มที่ว่างให้วางต่ออยู่เสมอ)
+function sizeBoard(){
+  let mx=0,my=0;board.forEach(t=>{if(t.x>mx)mx=t.x;if(t.y>my)my=t.y;});
+  const nc=Math.min(COLS,Math.max(14,mx+4)),nr=Math.min(ROWS,Math.max(6,my+3));
+  if(nc===GC&&nr===GR)return;
+  GC=nc;GR=nr;
+  bEl.querySelectorAll('.cell').forEach(e=>e.remove());
+  const fr=document.createDocumentFragment();
+  for(let y=0;y<GR;y++)for(let x=0;x<GC;x++){const d=document.createElement('div');d.className='cell';d.style.left=(x*PX+2)+'px';d.style.top=(y*PY+2)+'px';fr.append(d);}
+  bEl.prepend(fr);
+  bEl.style.width=(GC*PX+4)+'px';bEl.style.height=(GR*PY+4)+'px';
+}
+const hov=document.createElement('div');hov.className='hov';hov.hidden=true;bEl.append(hov);
+function cellAt(e){const r=bEl.getBoundingClientRect();const x=Math.floor((e.clientX-r.left)/PX),y=Math.floor((e.clientY-r.top)/PY);return x>=0&&x<GC&&y>=0&&y<GR?{x,y}:null;}
+// กลุ่มที่ถูกต้อง: run = สีเดียว เลขเพิ่มทีละ 1 จากซ้ายไปขวา (3+) / group = เลขเดียวกัน คนละสี (3-4)
+function isValid(g){
+  if(g.length<3)return false;
+  if(g.every(t=>t.c===g[0].c))return g.length<=13&&g.every((t,i)=>i===0||t.n===g[i-1].n%13+1); // เรียงวนได้ 13→1 แต่ห้ามเลขซ้ำในกลุ่ม
+  return g.length<=4&&g.every(t=>t.n===g[0].n)&&new Set(g.map(t=>t.c)).size===g.length;
+}
+function groups(){
+  const rows={};board.forEach(t=>(rows[t.y]=rows[t.y]||[]).push(t));
+  const out=[];
+  Object.values(rows).forEach(r=>{r.sort((a,b)=>a.x-b.x);let g=[r[0]];
+    for(let i=1;i<r.length;i++){if(r[i].x===r[i-1].x+1)g.push(r[i]);else{out.push(g);g=[r[i]];}}
+    out.push(g);});
+  return out;
+}
+function renderBoard(){
+  sizeBoard();bEl.querySelectorAll('.tile,.gbox,.pbadge').forEach(e=>e.remove());
+  let bad=0;const gs=groups();
+  gs.forEach(g=>{const ok=isValid(g);if(!ok)bad++;
+    const b=document.createElement('div');b.className='gbox '+(ok?'ok':'bad');
+    b.style.left=g[0].x*PX+'px';b.style.top=g[0].y*PY+'px';b.style.width=((g[g.length-1].x-g[0].x+1)*PX)+'px';b.style.height=PY+'px';bEl.append(b);});
+  board.forEach((t,i)=>{const e=tileEl(t,'board',i,plan&&plan.open&&plan.open.some(g=>g.includes(t))?' fromb':'');e.style.left=(t.x*PX+3)+'px';e.style.top=(t.y*PY+3)+'px';bEl.append(e);});
+  boardBad=bad;
+  $('gstat').textContent=gs.length?`${gs.length} กลุ่ม · ถูกต้อง ${gs.length-bad}${bad?` · ไม่ถูกต้อง ${bad} (กรอบแดง)`:''}`:'';
+}
+let rackGap=new Set();
+// Rack: แยกแถวที่เรียงต่อกัน 3+ แผ่น (สีเดียว เลขต่อกัน วน 13→1 ได้) ออกมาไว้ก่อน ที่เหลือเรียงตามสีชิดกัน
+function layoutRack(){
+  const byC=[[],[],[],[]],jk=[],seqs=[],rest=[];
+  rack.forEach(t=>t.n===0?jk.push(t):byC[t.c].push(t));
+  CORD.forEach(c=>{
+    const rem={};byC[c].sort((a,b)=>a.n-b.n).forEach(t=>(rem[t.n]=rem[t.n]||[]).push(t));
+    const has=n=>rem[n]&&rem[n].length>0;
+    for(;;){
+      const nums=Object.keys(rem).map(Number).filter(has);
+      let starts=nums.filter(n=>!has(n===1?13:n-1));
+      if(!starts.length&&nums.length===13)starts=[1];
+      let found=false;
+      starts.forEach(s=>{
+        const run=[];let n=s;
+        while(has(n)&&run.length<13){run.push(n);n=n%13+1;}
+        if(run.length>=3){seqs.push(run.map(k=>rem[k].shift()));found=true;}
+      });
+      if(!found)break;
+    }
+    Object.values(rem).forEach(a=>a.forEach(t=>rest.push(t)));
+  });
+  const out=[];rackGap=new Set();
+  seqs.forEach(s=>{if(out.length)rackGap.add(out.length);s.forEach(t=>out.push(t));});
+  const tail=rest.concat(jk);
+  if(tail.length){if(out.length)rackGap.add(out.length);tail.forEach(t=>out.push(t));}
+  rack=out;
+}
+const CORD=[0,1,3,2]; // แดง ฟ้า เหลือง ดำ
+function render(){layoutRack();renderBoard();if(PV.m&&plan&&!$('pvwrap').hidden)boardBadges();if(locked&&lockHL){const L=lockHL.slice();hl=rack.map(t=>L[key(t)]>0?(L[key(t)]--,true):false);}fill('rack',rack);$('bc').textContent=board.length;$('rc').textContent=rack.length;}
+function reset(){if(locked){lockDirty=true;return;}hl=[];$('res').hidden=true;$('gobtn').hidden=true;plan=null;$('pvwrap').hidden=true;}
+function count(t){return t.n===0?board.concat(rack).filter(x=>x.n===0).length:0;} // เลขซ้ำได้ไม่จำกัด จำกัดเฉพาะโจ๊กเกอร์
+
+// ---- drag & drop (pointer events: mouse + touch)
+let drag=null;
+document.addEventListener('pointerdown',e=>{
+  const el=e.target.closest('.tile[data-src]');
+  if(!el||el.dataset.src==='res')return;
+  e.preventDefault();
+  drag={src:el.dataset.src,i:+el.dataset.i,c:+el.dataset.c,n:+el.dataset.n,sx:e.clientX,sy:e.clientY,moved:false,ghost:null,grp:null};
+  if(groupMode&&drag.src==='board'){const bt=board[drag.i];drag.grp=groups().find(g=>g.includes(bt))||null;}
+  if(drag.src==='board'&&!drag.grp){ // กดค้าง 2 วิ = ยกทั้งกลุ่ม
+    const dd=drag;
+    dd.timer=setTimeout(()=>{
+      if(drag!==dd||dd.moved)return;
+      const bt=board[dd.i];dd.grp=groups().find(g=>g.includes(bt))||null;
+      if(dd.grp){const idx=new Set(dd.grp.map(t=>board.indexOf(t)));bEl.querySelectorAll('.tile').forEach(e=>{if(idx.has(+e.dataset.i))e.classList.add('lift');});try{navigator.vibrate&&navigator.vibrate(30);}catch(_){}}
+    },2000);
+  }
+});
+document.addEventListener('pointermove',e=>{
+  if(!drag)return;
+  if(!drag.moved&&Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)<6)return;
+  drag.moved=true;
+  if(!drag.ghost){if(drag.grp){const gh=document.createElement('div');gh.className='gghost';drag.grp.forEach(t=>gh.append(tileEl(t,'res',0)));gh.dataset.off=drag.grp.indexOf(board[drag.i])*PX+19;drag.ghost=gh;}else drag.ghost=tileEl({c:drag.c,n:drag.n},'res',0,' ghost');document.body.append(drag.ghost);}
+  drag.ghost.style.left=(e.clientX-(drag.grp?+drag.ghost.dataset.off:0))+'px';drag.ghost.style.top=(e.clientY-(drag.grp?25:0))+'px';
+  const z=document.elementFromPoint(e.clientX,e.clientY)?.closest('[data-zone]');
+  document.querySelectorAll('.zone').forEach(x=>x.classList.toggle('over',x===z&&z.id!=='board'));const cell=z&&z.id==='board'?cellAt(e):null;hov.hidden=!cell;if(cell){hov.style.left=(cell.x*PX+2)+'px';hov.style.top=(cell.y*PY+2)+'px';}
+});
+document.addEventListener('pointerup',e=>{
+  if(!drag)return;
+  const d=drag;drag=null;
+  clearTimeout(d.timer);d.ghost?.remove();hov.hidden=true;
+  document.querySelectorAll('.zone').forEach(x=>x.classList.remove('over'));
+  const src={board,rack}[d.src];
+  if(d.grp){bEl.querySelectorAll('.lift').forEach(e=>e.classList.remove('lift'));if(d.moved)moveGroup(d,e);return;}
+  if(!d.moved){ // click
+    if(src){src.splice(d.i,1);reset();render();}else if(addMode){if(count({c:d.c,n:d.n})>=2)$('msg').textContent='การ์ดชนิดเดียวกันมีได้สูงสุด 2 แผ่น';else{$('msg').textContent='';if(addMode==='board'){const f=freeCell();if(f)board.push({c:d.c,n:d.n,x:f.x,y:f.y});else $('msg').textContent='Board เต็ม';}else rack.push({c:d.c,n:d.n});reset();render();}}
+    return;
+  }
+  const zone=document.elementFromPoint(e.clientX,e.clientY)?.closest('[data-zone]')?.dataset.zone;
+  const t={c:d.c,n:d.n};
+  const orig=src?src[d.i]:null;if(src)src.splice(d.i,1);           // pulled from board/rack
+  if(zone){
+    const cell=zone==='board'?cellAt(e):null;let fail='';if(zone==='board'&&!cell)fail='วางนอกช่อง';else if(zone==='board'&&board.some(b=>b.x===cell.x&&b.y===cell.y))fail='ช่องนี้มีการ์ดแล้ว';else if(count(t)>=2)fail='การ์ดชนิดเดียวกันมีได้สูงสุด 2 แผ่น';if(fail){$('msg').textContent=fail;if(orig)(d.src==='board'?board:rack).push(orig);}
+    else{$('msg').textContent='';if(zone==='board')board.push({c:t.c,n:t.n,x:cell.x,y:cell.y});else rack.push(t);}
+  }
+  reset();render();
+});
+
+// ---- solver (ILP)
+const SETS=[];
+for(let c=0;c<4;c++)for(let a=1;a<=13;a++)for(let L=3;L<=5;L++) // runs longer than 5 can be split (wrap-around allowed)
+  SETS.push(Array.from({length:L},(_,k)=>c*13+(a-1+k)%13));
+for(let n=1;n<=13;n++)
+  [[0,1,2],[0,1,3],[0,2,3],[1,2,3],[0,1,2,3]].forEach(s=>SETS.push(s.map(c=>c*13+n-1)));
+
+function runSolve(){
+  if(typeof solver==='undefined'){$('msg').textContent='โหลด solver ไม่สำเร็จ (ตรวจอินเทอร์เน็ต)';return;}
+  $('gobtn').hidden=true;plan=null;if(boardBad){$('msg').textContent='';const b=$('res');b.hidden=false;b.innerHTML='<div class="big">Board ยังไม่ถูกกติกา</div><p>มี '+boardBad+' กลุ่มที่เรียงไม่ถูก (กรอบแดง) เช่น เลขไม่เรียงจากซ้ายไปขวา สีไม่ตรง หรือมีไม่ถึง 3 แผ่น แก้ก่อนแล้วกด Solve ใหม่</p>';return;}
+  const T=Array(52).fill(0),R=Array(52).fill(0);
+  board.forEach(t=>T[key(t)]++);rack.forEach(t=>R[key(t)]++);
+  const cons={},vars={},ints={};
+  for(let t=0;t<52;t++)cons['t'+t]={min:T[t],max:T[t]+R[t]};
+  SETS.forEach((s,i)=>{const v={score:s.length};s.forEach(t=>v['t'+t]=1);vars['s'+i]=v;ints['s'+i]=1;});
+  const r=solver.Solve({optimize:'score',opType:'max',constraints:cons,variables:vars,ints});
+  const box=$('res');box.hidden=false;
+  if(!r.feasible){
+    box.innerHTML='<div class="big">Board ไม่ถูกกติกา</div><p>แผ่นบน Board จัดเป็นชุดที่ถูกต้องไม่ได้ (เวอร์ชันนี้ยังไม่รองรับโจ๊กเกอร์) ลองตรวจการ์ดอีกครั้ง</p>';return;
+  }
+  const chosen=[],used=Array(52).fill(0);
+  SETS.forEach((s,i)=>{for(let k=0;k<Math.round(r['s'+i]||0);k++){chosen.push(s);s.forEach(t=>used[t]++);}});
+  chosen.splice(0,chosen.length,...refit(chosen));
+  const total=used.reduce((a,b)=>a+b,0),placed=total-board.length;
+  // highlight rack tiles that get placed
+  const left=used.map((u,t)=>u-T[t]);
+  hl=rack.map(t=>left[key(t)]>0?(left[key(t)]--,true):false);
+  fill('rack',rack);
+  const og=groups().map(g=>({g,k:g.map(key).sort((a,b)=>a-b).join(),kept:false})),ch=[];
+  chosen.forEach(s=>{const k=s.slice().sort((a,b)=>a-b).join();const m=og.find(o=>!o.kept&&o.k===k);if(m)m.kept=true;else ch.push(s);});
+  plan={keep:og.filter(o=>o.kept).flatMap(o=>o.g),open:og.filter(o=>!o.kept).map(o=>o.g),ch,rackUse:used.map((u,t)=>u-T[t])};
+  $('gobtn').hidden=placed<=0;
+  const nl=used.map((u,t)=>u-T[t]);
+  const orig={};groups().forEach(g=>{const k=g.map(key).sort((a,b)=>a-b).join();orig[k]=(orig[k]||0)+1;});
+  const changed=chosen.filter(s=>{const k=s.slice().sort((a,b)=>a-b).join();if(orig[k]>0){orig[k]--;return false;}return true;});
+  const sets=changed.map(s=>'<div class="grp">'+s.map(t=>{
+    const isNew=nl[t]>0;if(isNew)nl[t]--;
+    return tileEl({c:Math.floor(t/13),n:t%13+1},'res',0,isNew?' new':'').outerHTML;}).join('')+'</div>').join('');
+  box.innerHTML=placed>0
+    ?`<div class="big">วางได้สูงสุด ${placed} แผ่น (เหลือใน Rack ${rack.length-placed})</div><p class="hint">แสดงเฉพาะชุดที่เพิ่มหรือเปลี่ยน (ชุดที่ไม่เปลี่ยน ${chosen.length-changed.length} ชุด ซ่อนไว้) · กรอบเขียว = การ์ดจาก Rack ที่ต้องวาง · แผ่นอื่นในชุดคือการ์ดที่ย้ายมาจัดใหม่</p><div id="sets">${sets}</div>`
+    :`<div class="big">วางไม่ได้ → จั่วเพิ่ม</div><p class="hint">ไม่มีทางวางการ์ดจาก Rack ได้แม้จัด Board ใหม่</p>`;
+}
+$('solve').onclick=()=>{
+  if(!rack.length){$('msg').textContent='ใส่การ์ดใน Rack ก่อน';return;}
+  $('msg').textContent='';runSolve();
+};
+let addMode=false;
+$('addbtn').onclick=()=>{addMode=!addMode;$('addbtn').textContent=addMode?'Done':'Add';$('addbtn').classList.toggle('sec',!addMode);$('palp').classList.toggle('add',addMode);$('msg').textContent=addMode?'โหมด Add: กดการ์ดด้านขวาเพื่อใส่เข้า Rack · กด Done เมื่อเสร็จ':'';};
+let groupMode=false;
+function freeCell(){for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++)if(!board.some(b=>b.x===x&&b.y===y))return{x,y};return null;}
+function moveGroup(d,e){
+  const cell=cellAt(e),t0=board[d.i];
+  if(!cell){$('msg').textContent='วางนอกกริด';return;}
+  const dx=cell.x-t0.x,dy=cell.y-t0.y;
+  const bad=d.grp.some(t=>{const nx=t.x+dx,ny=t.y+dy;return nx<0||nx>=COLS||ny<0||ny>=ROWS||board.some(b=>!d.grp.includes(b)&&b.x===nx&&b.y===ny);});
+  if(bad){$('msg').textContent='ย้ายไม่ได้: ชนการ์ดอื่นหรือเกินกริด';return;}
+  d.grp.forEach(t=>{t.x+=dx;t.y+=dy;});$('msg').textContent='';reset();render();
+}
+// จัดการ์ดทั้งหมดบน Board เป็นชุดที่ถูกต้อง แล้ววางเรียงบนกริด (เว้น 1 ช่องระหว่างชุด)
+function autoArrange(){
+  if(!board.length||typeof solver==='undefined')return;
+  const T=Array(52).fill(0);board.forEach(t=>T[key(t)]++);
+  const cons={},vars={},ints={};
+  for(let t=0;t<52;t++)cons['t'+t]={max:T[t]};
+  SETS.forEach((s,i)=>{const v={score:s.length};s.forEach(t=>v['t'+t]=1);vars['s'+i]=v;ints['s'+i]=1;});
+  const r=solver.Solve({optimize:'score',opType:'max',constraints:cons,variables:vars,ints});
+  const chosen=[],used=Array(52).fill(0);
+  SETS.forEach((s,i)=>{for(let k=0;k<Math.round(r['s'+i]||0);k++){chosen.push(s);s.forEach(t=>used[t]++);}});
+  const isRun=s=>s.every(t=>Math.floor(t/13)===Math.floor(s[0]/13));
+  const runs=chosen.filter(isRun),others=chosen.filter(s=>!isRun(s));
+  let merged=true;
+  while(merged){merged=false;
+    outer:for(let i=0;i<runs.length;i++)for(let j=0;j<runs.length;j++){
+      const a=runs[i],b=runs[j];
+      if(i!==j&&Math.floor(a[0]/13)===Math.floor(b[0]/13)&&a.length+b.length<=13&&(a[a.length-1]%13+1)%13===b[0]%13){
+        runs[i]=a.concat(b);runs.splice(j,1);merged=true;break outer;}
+    }}
+  const singles=[];
+  for(let t=0;t<52;t++)for(let k=0;k<T[t]-used[t];k++)singles.push([t]);
+  const all=runs.sort((a,b)=>a[0]-b[0]).concat(others.sort((a,b)=>a[0]-b[0]),singles);
+  let x=0,y=0;const nb=[];
+  for(const s of all){
+    if(x>0&&x+s.length>COLS){x=0;y++;}
+    if(y>=ROWS)break;
+    s.forEach((t,k)=>nb.push({c:Math.floor(t/13),n:t%13+1,x:x+k,y}));
+    x+=s.length+1;
+  }
+  board=nb;reset();render();
+  $('msg').textContent=singles.length?`จัดเป็นชุดให้แล้ว · เหลือ ${singles.length} แผ่นที่จัดเป็นชุดที่ถูกต้องไม่ได้ (กรอบแดง)`:'จัดเป็นชุดให้แล้ว (แก้ไขตำแหน่งได้)';
+}
+function setMode(m){
+  const was=addMode==='board',curm=groupMode?'group':(addMode||null);
+  if(m===curm)m=null;
+  addMode=(m==='rack'||m==='board')?m:false;groupMode=m==='group';
+  $('addbtn').textContent=m==='rack'?'Done':'Add';$('addbtn').classList.toggle('sec',m!=='rack');
+  $('baddbtn').textContent=m==='board'?'Done':'Add';$('baddbtn').classList.toggle('sec',m!=='board');
+  $('grpbtn').textContent=m==='group'?'Done':'Group';$('grpbtn').classList.toggle('sec',m!=='group');
+  $('palp').classList.toggle('add',!!addMode);$('boardwrap').classList.toggle('gmode',groupMode);
+  $('msg').textContent={rack:'โหมด Add: กดการ์ดด้านขวาเพื่อใส่ Rack · กด Done เมื่อเสร็จ',board:'โหมด Add: กดการ์ดด้านขวาเพื่อใส่ Board · กด Done เพื่อจัดเป็นชุดให้',group:'โหมด Group: ลากการ์ดใน Board เพื่อย้ายทั้งกลุ่ม · กด Done เมื่อเสร็จ'}[m]||'';
+  if(was&&m!=='board')autoArrange();
+}
+$('addbtn').onclick=()=>setMode('rack');$('baddbtn').onclick=()=>setMode('board');$('grpbtn').onclick=()=>setMode('group');
+let plan=null;
+// หาที่ว่างในแถวเดียว ยาว len ช่อง โดยซ้าย-ขวาเว้นว่าง 1 ช่อง (ไม่ให้ติดกลุ่มอื่น)
+function findSpot(len,occ){
+  for(const lim of [GC,COLS])for(let y=0;y<ROWS;y++)for(let x=0;x+len<=lim;x++){
+    let free=true;for(let k=-1;k<=len&&free;k++)if(occ.has((x+k)+','+y))free=false;
+    if(free)return{x,y};
+  }
+  return null;
+}
+// Go: เอาการ์ดจาก Rack ไปใส่ Board ตามผล Solve (ชุดที่ไม่เปลี่ยนอยู่ที่เดิม)
+function applyPlan(){
+  if(!plan)return;
+  const keep=plan.keep.map(t=>({c:t.c,n:t.n,x:t.x,y:t.y}));
+  const occ=new Set(keep.map(t=>t.x+','+t.y)),added=[];
+  for(const s of plan.ch.slice().sort((a,b)=>b.length-a.length)){
+    const p=findSpot(s.length,occ);
+    if(!p){$('msg').textContent='Board ไม่มีที่ว่างพอ ลองย้ายกลุ่มเพื่อเว้นที่ก่อน';return;}
+    s.forEach((t,k)=>{occ.add((p.x+k)+','+p.y);added.push({c:Math.floor(t/13),n:t%13+1,x:p.x+k,y:p.y});});
+  }
+  const use=plan.rackUse.slice();
+  rack=rack.filter(t=>{const k=key(t);if(use[k]>0){use[k]--;return false;}return true;});
+  board=keep.concat(added);reset();render();
+  $('msg').textContent='ย้ายการ์ดจาก Rack ไปจัดบน Board แล้ว';
+}
+$('gobtn').onclick=applyPlan;
+// รวมชุดที่ solver แบ่งเป็นชิ้นเล็ก กลับเป็นกลุ่มเดิมบน Board ถ้าประกอบกันได้ตรงพอดี
+function refit(chosen){
+  const kk=a=>a.slice().sort((x,y)=>x-y).join();
+  const pool=chosen.slice(),res=[],open=[];
+  groups().forEach(g=>{const gi=g.map(key),i=pool.findIndex(s=>kk(s)===kk(gi));if(i>=0){res.push(gi);pool.splice(i,1);}else open.push(gi);});
+  open.forEach(gi=>{
+    const cnt={};gi.forEach(t=>cnt[t]=(cnt[t]||0)+1);
+    const cand=pool.filter(s=>s.every(t=>cnt[t]>0)),pick=[];
+    const dfs=(start,left)=>{
+      if(Object.values(left).every(v=>v===0))return true;
+      for(let i=start;i<cand.length;i++){
+        const l={...left};let ok=true;
+        for(const t of cand[i]){if(!(l[t]>0)){ok=false;break;}l[t]--;}
+        if(!ok)continue;
+        pick.push(cand[i]);if(dfs(i+1,l))return true;pick.pop();
+      }
+      return false;
+    };
+    if(dfs(0,cnt)){pick.forEach(s=>pool.splice(pool.indexOf(s),1));res.push(gi);}
+  });
+  return res.concat(pool);
+}
+// Go (เวอร์ชันใหม่): กลุ่มที่แก้จากของเดิม = ต่อจากตำแหน่งเดิม / กลุ่มใหม่ทั้งกลุ่ม = วางในที่ว่าง
+function applyPlan2(){
+  if(!plan)return;
+  const fixed=plan.keep.map(t=>({c:t.c,n:t.n,x:t.x,y:t.y}));
+  const occ=new Set(fixed.map(t=>t.x+','+t.y)),added=[];
+  const spotOk=(x0,y,len)=>{if(x0<0||x0+len>COLS)return false;for(let k=-1;k<=len;k++)if(occ.has((x0+k)+','+y))return false;return true;};
+  const ov=(s,g)=>{const c={};g.forEach(t=>{const k=key(t);c[k]=(c[k]||0)+1;});let n=0;s.forEach(t=>{if(c[t]>0){c[t]--;n++;}});return n;};
+  const items=plan.ch.map(s=>({s,best:Math.max(0,...plan.open.map(g=>ov(s,g)))})).sort((a,b)=>b.best-a.best||b.s.length-a.s.length);
+  let fallback=false;
+  for(const it of items){
+    let s=it.s,pos=null,G=null,bo=0;
+    plan.open.forEach(g=>{const o=ov(s,g);if(o>bo){bo=o;G=g;}});
+    if(G){
+      if(!s.every(t=>Math.floor(t/13)===Math.floor(s[0]/13))){ // group เลขเดียวกัน: รักษาลำดับเดิม
+        const rem=s.slice(),ord=[];
+        G.slice().sort((a,b)=>a.x-b.x).forEach(t=>{const i=rem.indexOf(key(t));if(i>=0){ord.push(rem[i]);rem.splice(i,1);}});
+        s=ord.concat(rem);
+      }
+      const y=G[0].y,cells=G.filter(t=>!occ.has(t.x+','+t.y));let best=-1;
+      for(let i=0;i<s.length;i++)cells.forEach(t=>{
+        if(key(t)!==s[i])return;
+        const x0=t.x-i;if(!spotOk(x0,y,s.length))return;
+        let m=0;s.forEach((id,j)=>{if(cells.some(u=>u.x===x0+j&&key(u)===id))m++;});
+        if(m>best){best=m;pos={x:x0,y};}
+      });
+      if(!pos)fallback=true;
+    }
+    if(!pos)pos=findSpot(s.length,occ);
+    if(!pos){$('msg').textContent='Board ไม่มีที่ว่างพอ ลองย้ายกลุ่มเพื่อเว้นที่ก่อน';return;}
+    s.forEach((t,k)=>{occ.add((pos.x+k)+','+pos.y);added.push({c:Math.floor(t/13),n:t%13+1,x:pos.x+k,y:pos.y});});
+  }
+  const use=plan.rackUse.slice();
+  rack=rack.filter(t=>{const k=key(t);if(use[k]>0){use[k]--;return false;}return true;});
+  board=fixed.concat(added);reset();render();
+  $('msg').textContent='ย้ายการ์ดจาก Rack ไปจัดบน Board แล้ว'+(fallback?' · บางกลุ่มต่อที่เดิมไม่ได้ (ชนกลุ่มอื่น) จึงย้ายไปที่ว่าง':'');
+}
+$('gobtn').onclick=applyPlan2;
+// ===== โจ๊กเกอร์: ชุดที่ใช้โจ๊กเกอร์แทน (ไม่เกิน 2 ใบ/ชุด และต้องมีแผ่นจริงอย่างน้อย 2) =====
+const JSETS=[];
+(()=>{const seen=new Set(),kk=a=>a.slice().sort((x,y)=>x-y).join();
+  SETS.forEach(s=>{s.run=s.every(t=>Math.floor(t/13)===Math.floor(s[0]/13));});
+  SETS.forEach(s=>{const n=s.length;
+    for(let i=0;i<n;i++)for(let j=i;j<n;j++){
+      const jc=j===i?1:2;if(n-jc<2)continue;
+      const v=s.slice();v[i]=52;v[j]=52;
+      const k=kk(v);if(seen.has(k))continue;seen.add(k);v.run=s.run;JSETS.push(v);
+    }});})();
+function idTile(t){return t===52?{c:0,n:0}:{c:Math.floor(t/13),n:t%13+1};}
+function lp(ST,lo,hi){
+  const cons={},vars={},ints={},hasJ=ST.length>SETS.length;
+  for(let t=0;t<(hasJ?53:52);t++)cons['t'+t]={min:lo[t],max:hi[t]};
+  ST.forEach((s,i)=>{const v={score:s.length};s.forEach(t=>v['t'+t]=(v['t'+t]||0)+1);vars['s'+i]=v;ints['s'+i]=1;});
+  const r=solver.Solve({optimize:'score',opType:'max',constraints:cons,variables:vars,ints});
+  const chosen=[],used=Array(53).fill(0);
+  if(r.feasible)ST.forEach((s,i)=>{for(let k=0;k<Math.round(r['s'+i]||0);k++){chosen.push(s);s.forEach(t=>used[t]++);}});
+  return{feasible:r.feasible,chosen,used};
+}
+function isValid(g){
+  if(g.length<3)return false;
+  const real=g.map((t,i)=>({t,i})).filter(o=>o.t.n>0);
+  if(real.length<2)return false;
+  if(real.every(o=>o.t.c===real[0].t.c)){
+    if(g.length>13)return false;
+    const off=o=>(((o.t.n-1-o.i)%13)+13)%13;
+    return real.every(o=>off(o)===off(real[0]));
+  }
+  return g.length<=4&&real.every(o=>o.t.n===real[0].t.n)&&new Set(real.map(o=>o.t.c)).size===real.length;
+}
+function runSolve(){
+  $('gobtn').hidden=true;plan=null;
+  if(typeof solver==='undefined'){$('msg').textContent='โหลด solver ไม่สำเร็จ (ตรวจอินเทอร์เน็ต)';return;}
+  const box=$('res');box.hidden=false;
+  if(boardBad){box.innerHTML='<div class="big">Board ยังไม่ถูกกติกา</div><p>มี '+boardBad+' กลุ่มที่เรียงไม่ถูก (กรอบแดง) เช่น เลขไม่เรียงจากซ้ายไปขวา สีไม่ตรง หรือมีไม่ถึง 3 แผ่น แก้ก่อนแล้วกด Solve ใหม่</p>';return;}
+  $('msg').textContent='';
+  const T=Array(53).fill(0),R=Array(53).fill(0);
+  board.forEach(t=>T[key(t)]++);rack.forEach(t=>R[key(t)]++);
+  const ST=T[52]+R[52]>0?SETS.concat(JSETS):SETS;
+  const lo=T.slice(),hi=T.map((v,i)=>v+R[i]);
+  const res=lp(ST,lo,hi);
+  if(!res.feasible){box.innerHTML='<div class="big">Board ไม่ถูกกติกา</div><p>แผ่นบน Board จัดเป็นชุดที่ถูกต้องไม่ได้ ลองตรวจการ์ดอีกครั้ง</p>';return;}
+  const chosen=res.chosen,used=res.used;
+  chosen.splice(0,chosen.length,...refit(chosen));
+  const total=used.reduce((a,b)=>a+b,0),placed=total-board.length;
+  const left=used.map((u,t)=>u-T[t]);
+  hl=rack.map(t=>left[key(t)]>0?(left[key(t)]--,true):false);
+  fill('rack',rack);
+  const og=groups().map(g=>({g,k:g.map(key).sort((a,b)=>a-b).join(),kept:false})),ch=[];
+  chosen.forEach(s=>{const k=s.slice().sort((a,b)=>a-b).join();const m=og.find(o=>!o.kept&&o.k===k);if(m)m.kept=true;else ch.push(s);});
+  plan={keep:og.filter(o=>o.kept).flatMap(o=>o.g),open:og.filter(o=>!o.kept).map(o=>o.g),ch,rackUse:used.map((u,t)=>u-T[t])};
+  $('gobtn').hidden=placed<=0;
+  const nl=used.map((u,t)=>u-T[t]);
+  const sets=ch.map(s=>'<div class="grp">'+s.map(t=>{const isNew=nl[t]>0;if(isNew)nl[t]--;return tileEl(idTile(t),'res',0,isNew?' new':' fromb').outerHTML;}).join('')+'</div>').join('');
+  box.innerHTML=placed>0
+    ?`<div class="big">วางได้สูงสุด ${placed} แผ่น (เหลือใน Rack ${rack.length-placed})</div><p class="hint">แสดงเฉพาะชุดที่เพิ่มหรือเปลี่ยน (ไม่เปลี่ยน ${chosen.length-ch.length} ชุด ซ่อนไว้) · พื้นเขียว = การ์ดจาก Rack ที่ต้องวาง · พื้นฟ้า = การ์ดเดิมบน Board ที่ย้ายมาจัดใหม่</p><div id="sets">${sets}</div>`
+    :`<div class="big">วางไม่ได้ → จั่วเพิ่ม</div><p class="hint">ไม่มีทางวางการ์ดจาก Rack ได้แม้จัด Board ใหม่</p>`;
+}
+function autoArrange(){
+  if(!board.length||typeof solver==='undefined')return;
+  const T=Array(53).fill(0);board.forEach(t=>T[key(t)]++);
+  const ST=T[52]>0?SETS.concat(JSETS):SETS;
+  const {chosen,used}=lp(ST,Array(53).fill(0),T);
+  const isRun=s=>!!s.run;
+  const runs=chosen.filter(isRun),others=chosen.filter(s=>!isRun(s));
+  let merged=true;
+  while(merged){merged=false;
+    outer:for(let i=0;i<runs.length;i++)for(let j=0;j<runs.length;j++){
+      const a=runs[i],b=runs[j];
+      if(i!==j&&!a.includes(52)&&!b.includes(52)&&Math.floor(a[0]/13)===Math.floor(b[0]/13)&&a.length+b.length<=13&&(a[a.length-1]%13+1)%13===b[0]%13){
+        runs[i]=a.concat(b);runs.splice(j,1);merged=true;break outer;}
+    }}
+  const singles=[];
+  for(let t=0;t<53;t++)for(let k=0;k<T[t]-used[t];k++)singles.push([t]);
+  const all=runs.sort((a,b)=>a[0]-b[0]).concat(others.sort((a,b)=>a[0]-b[0]),singles);
+  let x=0,y=0;const nb=[];
+  for(const s of all){
+    if(x>0&&x+s.length>Math.max(12,Math.min(30,Math.round(Math.sqrt(board.length)*2.5)))){x=0;y++;}
+    if(y>=ROWS)break;
+    s.forEach((t,k)=>nb.push({...idTile(t),x:x+k,y}));
+    x+=s.length+1;
+  }
+  board=nb;reset();render();
+  $('msg').textContent=singles.length?`จัดเป็นชุดให้แล้ว · เหลือ ${singles.length} แผ่นที่จัดเป็นชุดที่ถูกต้องไม่ได้ (กรอบแดง)`:'จัดเป็นชุดให้แล้ว (แก้ไขตำแหน่งได้)';
+}
+function applyPlan2(){
+  if(!plan)return;
+  const fixed=plan.keep.map(t=>({c:t.c,n:t.n,x:t.x,y:t.y}));
+  const occ=new Set(fixed.map(t=>t.x+','+t.y)),added=[];
+  const spotOk=(x0,y,len)=>{if(x0<0||x0+len>COLS)return false;for(let k=-1;k<=len;k++)if(occ.has((x0+k)+','+y))return false;return true;};
+  const ov=(s,g)=>{const c={};g.forEach(t=>{const k=key(t);c[k]=(c[k]||0)+1;});let n=0;s.forEach(t=>{if(c[t]>0){c[t]--;n++;}});return n;};
+  const items=plan.ch.map(s=>({s,best:Math.max(0,...plan.open.map(g=>ov(s,g)))})).sort((a,b)=>b.best-a.best||b.s.length-a.s.length);
+  let fallback=false;
+  for(const it of items){
+    let s=it.s,pos=null,G=null,bo=0;
+    plan.open.forEach(g=>{const o=ov(s,g);if(o>bo){bo=o;G=g;}});
+    if(G){
+      if(!s.run){
+        const rem=s.slice(),ord=[];
+        G.slice().sort((a,b)=>a.x-b.x).forEach(t=>{const i=rem.indexOf(key(t));if(i>=0){ord.push(rem[i]);rem.splice(i,1);}});
+        s=ord.concat(rem);
+      }
+      const y=G[0].y,cells=G.filter(t=>!occ.has(t.x+','+t.y));let best=-1;
+      for(let i=0;i<s.length;i++)cells.forEach(t=>{
+        if(key(t)!==s[i])return;
+        const x0=t.x-i;if(!spotOk(x0,y,s.length))return;
+        let m=0;s.forEach((id,j)=>{if(cells.some(u=>u.x===x0+j&&key(u)===id))m++;});
+        if(m>best){best=m;pos={x:x0,y};}
+      });
+      if(!pos)fallback=true;
+    }
+    if(!pos)pos=findSpot(s.length,occ);
+    if(!pos){$('msg').textContent='Board ไม่มีที่ว่างพอ ลองย้ายกลุ่มเพื่อเว้นที่ก่อน';return;}
+    s.forEach((t,k)=>{occ.add((pos.x+k)+','+pos.y);added.push({...idTile(t),x:pos.x+k,y:pos.y});});
+  }
+  const use=plan.rackUse.slice();
+  rack=rack.filter(t=>{const k=key(t);if(use[k]>0){use[k]--;return false;}return true;});
+  board=fixed.concat(added);reset();render();
+  $('msg').textContent='ย้ายการ์ดจาก Rack ไปจัดบน Board แล้ว'+(fallback?' · บางกลุ่มต่อที่เดิมไม่ได้ (ชนกลุ่มอื่น) จึงย้ายไปที่ว่าง':'');
+}
+// ===== อ่านภาพหน้าจอ (แชร์จอ / อัปโหลดภาพ) → Board + Rack =====
+// เทมเพลตตัวเลข 0-9 (กริด 8x12 + อัตราส่วน) เรียนจากสกรีนช็อตเกม Roblox Rummikub
+const TPLS={0:['003894000399998008999992299879964993099699920698999206999993089849942996299999940899999201799830',.88],1:['999999999999999999999999004999990049999900499999004999990049999900499999004999990049999900299999',.458],2:['028999204999999399999996048029960000099600007994000799920069992007999400499999994999999949999999',.792],3:['499999964999999649999994000799700049994000699994006999990000299949647999799999989999999424999820',.792],4:['000899000029960000699200029980000499643009988990499889938999999999999999899999980000999000008980',1],5:['079999960999999609999996099900000999962009999994099999990000299909424999499999989999999424999820',.792],6:['000499630279999808999994299944624996440099999992999999989999699979960999499869990899999801699971',.84],7:['999999999999999999999998994099969943999300049990000899700029994000799900009996000399930006999200',.833],8:['027999300899999329999996499629992998499808999994089999947998699999960999999869992999999804899961',.84],9:['024994002999997279999994999429989993299999999999299999990399799902007999099999964999999248999520',.8]};
+const GW=8,GH=12,TPL={};
+for(const d in TPLS)TPL[d]={g:Float32Array.from(TPLS[d][0],ch=>+ch/9),ar:TPLS[d][1]};
+function normGlyph(ink,W,x0,x1,y0,y1){
+  let a=x1,b=x0,c=y1,d=y0;
+  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)if(ink[y*W+x]){if(x<a)a=x;if(x>b)b=x;if(y<c)c=y;if(y>d)d=y;}
+  if(b<a)return null;
+  const bw=b-a+1,bh=d-c+1,g=new Float32Array(GW*GH);
+  for(let gy=0;gy<GH;gy++)for(let gx=0;gx<GW;gx++){
+    const xs=a+Math.floor(gx*bw/GW),xe=a+Math.max(Math.floor((gx+1)*bw/GW),Math.floor(gx*bw/GW)+1);
+    const ys=c+Math.floor(gy*bh/GH),ye=c+Math.max(Math.floor((gy+1)*bh/GH),Math.floor(gy*bh/GH)+1);
+    let s=0,n=0;for(let y=ys;y<ye&&y<=d;y++)for(let x=xs;x<xe&&x<=b;x++){s+=ink[y*W+x];n++;}
+    g[gy*GW+gx]=n?s/n:0;
+  }
+  return{g,ar:bw/bh};
+}
+function glyphDist(g,T){let s=0;for(let i=0;i<GW*GH;i++){const e=g.g[i]-T.g[i];s+=e*e;}return s/(GW*GH)+.15*Math.abs(Math.log(g.ar/T.ar));}
+function bestOf(g,cands){let bd=9,bk=-1;cands.forEach(d=>{const s=glyphDist(g,TPL[d]);if(s<bd){bd=s;bk=d;}});return[bk,bd];}
+// อ่านการ์ด 1 ใบ: สี (0 แดง 1 ฟ้า 2 ดำ 3 ส้ม) + เลข 1-13 (ลองทั้งแบบ 1 หลักและ 2 หลัก เลือกอันที่ตรงกว่า) ถ้าไม่ตรงเทมเพลตเลย = โจ๊กเกอร์
+function readTile(px,W,t){
+  const x0=Math.round(t.x+t.w*.13),x1=Math.round(t.x+t.w*.87),y0=Math.round(t.y+t.h*.2),y1=Math.round(t.y+t.h*.8);
+  const rw=x1-x0+1,rh=y1-y0+1,ink=new Uint8Array(rw*rh),cls=[0,0,0,0],cols=new Uint16Array(rw);
+  for(let y=0;y<rh;y++)for(let x=0;x<rw;x++){
+    const i=((y0+y)*W+x0+x)*4,r=px[i],g=px[i+1],b=px[i+2],sat=Math.max(r,g,b)-Math.min(r,g,b),lum=.3*r+.59*g+.11*b;
+    if(lum<105||sat>95){ink[y*rw+x]=1;cols[x]++;
+      if(sat<70)cls[2]++;else if(b>r+50&&b>g)cls[1]++;else if(r>150&&g<100&&b<100)cls[0]++;else if(r>150&&g>=100&&b<110)cls[3]++;}
+  }
+  let lo=-1,hi=-1;for(let x=0;x<rw;x++)if(cols[x]>=2){if(lo<0)lo=x;hi=x;}
+  if(lo<0)return null;
+  const g=normGlyph(ink,rw,lo,hi,0,rh-1);if(!g)return null;
+  const[d1,s1]=bestOf(g,[1,2,3,4,5,6,7,8,9]);
+  const ww=hi-lo+1,a=lo+Math.floor(ww*.3),b=lo+Math.floor(ww*.7);let m=a;
+  for(let x=a;x<=b;x++)if(cols[x]<cols[m])m=x;
+  const g0=normGlyph(ink,rw,lo,m,0,rh-1),g1=normGlyph(ink,rw,m+1,hi,0,rh-1);
+  let n=d1,s=s1;
+  if(g0&&g1){const[e1,t1]=bestOf(g0,[1]),[e2,t2]=bestOf(g1,[0,1,2,3]),s2=Math.max(t1,t2);if(s2<s1){n=10+e2;s=s2;}}
+  if(s>0.2)return{n:0,c:0,joker:true};
+  return{n,c:cls.indexOf(Math.max(...cls))};
+}
+// แปลงตำแหน่งพิกเซลบนโต๊ะในเกม → ช่องกริดของเว็บ
+function mapBoard(bt,medW,medH){
+  if(!bt.length)return{out:[],drop:0};
+  const rows=[];
+  bt.slice().sort((a,b)=>a.cy-b.cy).forEach(t=>{const r=rows[rows.length-1];if(r&&Math.abs(t.cy-r.cy)<medH*.5){r.t.push(t);r.cy=r.t.reduce((s,u)=>s+u.cy,0)/r.t.length;}else rows.push({cy:t.cy,t:[t]});});
+  let pY=medH*1.45;const dy=[];for(let i=1;i<rows.length;i++)dy.push(rows[i].cy-rows[i-1].cy);if(dy.length)pY=Math.min(...dy);
+  const dx=[];rows.forEach(r=>{r.t.sort((a,b)=>a.cx-b.cx);for(let i=1;i<r.t.length;i++){const d=r.t[i].cx-r.t[i-1].cx;if(d<medW*1.5)dx.push(d);}});
+  dx.sort((a,b)=>a-b);const pX=dx.length?dx[dx.length>>1]:medW*1.15;
+  const minCx=Math.min(...bt.map(t=>t.cx)),minCy=rows[0].cy,out=[],seen=new Set();let drop=0;
+  rows.forEach(r=>{const gy=Math.round((r.cy-minCy)/pY);r.t.forEach(t=>{const gx=Math.round((t.cx-minCx)/pX),k=gx+','+gy;if(gx>=COLS||gy>=ROWS||seen.has(k)){drop++;return;}seen.add(k);out.push({c:t.c,n:t.n,x:gx,y:gy,s:t});});});
+  return{out,drop};
+}
+const VC=document.createElement('canvas'),VX=VC.getContext('2d',{willReadFrequently:true});
+const V={stream:null,timer:null,video:document.createElement('video'),applied:'',pending:''};
+V.video.muted=true;V.video.playsInline=true;
+const vstat=s=>{$('vst').textContent=s;};
+function vprocess(src,sw,sh,now){
+  if(locked){vstat('🔒 ล็อคอยู่ — ภาพถูกตรึงไว้ ไม่ประมวลผลใหม่');return;}
+  const sc=Math.min(1,1280/sw),W=Math.round(sw*sc),H=Math.round(sh*sc),N=W*H;
+  VC.width=W;VC.height=H;VX.drawImage(src,0,0,W,H);
+  const px=VX.getImageData(0,0,W,H).data;
+  const cream=new Uint8Array(N),rowF=new Uint32Array(H),colF=new Uint32Array(W);
+  for(let p=0,i=0;p<N;p++,i+=4){
+    const r=px[i],g=px[i+1],b=px[i+2];
+    if(r>190&&g>165&&b>145&&r>=g&&g>=b&&r-b>12&&r-b<95)cream[p]=1;
+    else if(b>110&&b>r*1.5&&b>g*1.2){rowF[(p/W)|0]++;colF[p%W]++;}
+  }
+  // หาก้อนสีครีม = การ์ด
+  const seen=new Uint8Array(N),stack=new Int32Array(N);let comps=[];
+  for(let p0=0;p0<N;p0++){
+    if(!cream[p0]||seen[p0])continue;
+    let sp=0,cnt=0,x0=W,x1=0,y0=H,y1=0;stack[sp++]=p0;seen[p0]=1;
+    while(sp){const p=stack[--sp],x=p%W,y=(p/W)|0;cnt++;if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;
+      if(x>0&&cream[p-1]&&!seen[p-1]){seen[p-1]=1;stack[sp++]=p-1;}
+      if(x<W-1&&cream[p+1]&&!seen[p+1]){seen[p+1]=1;stack[sp++]=p+1;}
+      if(y>0&&cream[p-W]&&!seen[p-W]){seen[p-W]=1;stack[sp++]=p-W;}
+      if(y<H-1&&cream[p+W]&&!seen[p+W]){seen[p+W]=1;stack[sp++]=p+W;}}
+    const w=x1-x0+1,h=y1-y0+1;
+    if(w>=18&&h>=24&&h/w>1&&h/w<1.9&&cnt/(w*h)>.4)comps.push({x:x0,y:y0,w,h});
+  }
+  const pv=$('vprev'),pw=Math.min(560,W);pv.width=pw;pv.height=Math.round(H*pw/W);
+  const pc=pv.getContext('2d');pc.drawImage(VC,0,0,pv.width,pv.height);
+  if(!comps.length){vstat('ไม่พบการ์ดในภาพ');return;}
+  const ws=comps.map(c=>c.w).sort((a,b)=>a-b),hs=comps.map(c=>c.h).sort((a,b)=>a-b),medW=ws[ws.length>>1],medH=hs[hs.length>>1];
+  comps=comps.filter(c=>Math.abs(c.w-medW)<.2*medW&&Math.abs(c.h-medH)<.2*medH);
+  // หากรอบผ้าสกินสีน้ำเงิน (โต๊ะ) แยกจาก Rack ด้านล่าง
+  const rng=(a)=>{let m=0;for(let i=0;i<a.length;i++)if(a[i]>m)m=a[i];let lo=-1,hi=-1;for(let i=0;i<a.length;i++)if(a[i]>m*.3){if(lo<0)lo=i;hi=i;}return[lo,hi,m];};
+  const[fy0,fy1,fm]=rng(rowF),[fx0,fx1]=rng(colF),feltOK=fm>W*.15;
+  const bt=[],rk=[];let unk=0,jk=0;
+  comps.forEach(t=>{
+    t.cx=t.x+t.w/2;t.cy=t.y+t.h/2;
+    const inBoard=feltOK?(t.cx>=fx0&&t.cx<=fx1&&t.cy>=fy0&&t.cy<=fy1):t.cy<H*.7;
+    const inRack=!inBoard&&(feltOK?t.cy>fy1:t.cy>=H*.7);
+    t.zone=inBoard?'board':inRack?'rack':'';
+    if(!t.zone){t.lab='';return;}
+    const rd=readTile(px,W,t);
+    if(!rd){t.zone='bad';t.lab='?';unk++;return;}
+    t.lab=rd.joker?'J':rd.n;if(rd.joker)jk++;
+    t.c=rd.c;t.n=rd.n;(inBoard?bt:rk).push(t);
+  });
+  pc.lineWidth=2;pc.font='bold 12px sans-serif';const k=pw/W;
+  comps.forEach(t=>{if(!t.zone)return;pc.strokeStyle=t.zone==='board'?'#22c55e':t.zone==='rack'?'#fbbf24':'#ef4444';pc.strokeRect(t.x*k,t.y*k,t.w*k,t.h*k);pc.fillStyle='#fff';pc.fillText(String(t.lab),t.x*k+3,t.y*k+13);});
+  V.base=pc.getImageData(0,0,pv.width,pv.height);V.k=k;drawHL();
+  const mb=mapBoard(bt,medW,medH),bd=mb.out,rr=rk.map(t=>({c:t.c,n:t.n,s:t}));
+  const sig=JSON.stringify([bd.map(t=>[t.y,t.x,t.c,t.n]).sort(),rr.map(t=>[t.c,t.n]).sort()]);
+  const info=`Board ${bd.length} · Rack ${rr.length}`+(jk?` · โจ๊กเกอร์ ${jk}`:'')+(unk?` · อ่านไม่ได้ ${unk}`:'')+(mb.drop?` · เกินกริด ${mb.drop}`:'');
+  if(sig===V.applied){vstat('อ่านแล้ว (ไม่เปลี่ยน) · '+info);return;}
+  if(locked){vstat('🔒 ล็อคผล Solve อยู่ — ข้ามการอัปเดตจากภาพ · '+info);return;}
+  if(!now&&sig!==V.pending){V.pending=sig;vstat('กำลังยืนยันภาพ… '+info);return;}
+  V.applied=sig;V.pending='';
+  board=bd.map(t=>({c:t.c,n:t.n,x:t.x,y:t.y,s:t.s}));rack=rr;
+  reset();render();vstat('อัปเดตแล้ว · '+info);
+  if($('vauto').checked&&rack.length)runSolve();
+}
+function vtick(){
+  if(!V.stream)return;
+  if(V.video.readyState>=2&&V.video.videoWidth){try{vprocess(V.video,V.video.videoWidth,V.video.videoHeight,false);}catch(e){vstat('ประมวลผลผิดพลาด: '+e.message);}}
+  V.timer=setTimeout(vtick,+$('vint').value);
+}
+function vstop(){
+  clearTimeout(V.timer);if(V.stream){V.stream.getTracks().forEach(t=>t.stop());V.stream=null;}
+  $('vstart').hidden=false;$('vstop').hidden=true;vstat('หยุดแชร์แล้ว');
+}
+$('vstart').onclick=async()=>{
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getDisplayMedia){vstat('เบราว์เซอร์นี้แชร์จอไม่ได้ (ใช้เดสก์ท็อป) ลองอัปโหลดภาพแทน');return;}
+  try{V.stream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:5},audio:false});}
+  catch(e){vstat('แชร์จอไม่สำเร็จ: '+(e.name||e)+' — หน้านี้ถูกฝังในกรอบจึงแชร์จอไม่ได้: ดาวน์โหลดไฟล์ไปเปิดในเครื่อง หรือแคปจอ (Win+Shift+S) แล้วกด Ctrl+V วางที่นี่');V.stream=null;return;}
+  V.video.srcObject=V.stream;try{await V.video.play();}catch(e){}
+  V.stream.getVideoTracks()[0].onended=vstop;
+  V.applied='';V.pending='';$('vstart').hidden=true;$('vstop').hidden=false;vstat('กำลังอ่าน…');vtick();
+};
+$('vstop').onclick=vstop;
+document.addEventListener('paste',e=>{
+  const it=[...(e.clipboardData?e.clipboardData.items:[])].find(i=>i.type.startsWith('image/'));if(!it)return;
+  const img=new Image();
+  img.onload=()=>{V.applied='';V.pending='';try{vprocess(img,img.naturalWidth,img.naturalHeight,true);}catch(er){vstat('ประมวลผลผิดพลาด: '+er.message);}URL.revokeObjectURL(img.src);};
+  img.src=URL.createObjectURL(it.getAsFile());
+});
+$('vfile').onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  const img=new Image();
+  img.onload=()=>{V.applied='';V.pending='';try{vprocess(img,img.naturalWidth,img.naturalHeight,true);}catch(er){vstat('ประมวลผลผิดพลาด: '+er.message);}URL.revokeObjectURL(img.src);};
+  img.src=URL.createObjectURL(f);e.target.value='';
+};
+// ===== Lock Solve: ล็อคผลวิเคราะห์ ห้ามเปลี่ยน ห้ามวิเคราะห์ใหม่ =====
+let locked=false,lockDirty=false,lockHL=null;
+const _solve0=runSolve;
+runSolve=function(){if(locked){$('msg').textContent='🔒 ล็อคผล Solve อยู่ — ปลดล็อคก่อนจึงจะวิเคราะห์ใหม่ได้';return;}const r0=_solve0.apply(this,arguments);renderBoard();drawHL();renderPreview();return r0;};
+const _go0=applyPlan2;
+applyPlan2=function(){const before=rack.length;_go0.apply(this,arguments);if(locked&&rack.length<before){plan=null;$('gobtn').hidden=true;}};
+$('gobtn').onclick=applyPlan2;
+$('lockbtn').onclick=()=>{
+  const b=$('lockbtn');
+  if(!locked){
+    if($('res').hidden){$('msg').textContent='ยังไม่มีผล Solve ให้ล็อค กด Solve ก่อน';return;}
+    locked=true;lockDirty=false;lockHL=plan?plan.rackUse.slice():null;
+    b.textContent='🔒 LOCKED — กดเพื่อปลดล็อค';b.classList.add('on');
+    $('res').classList.add('locked');$('vprev').classList.add('locked');$('solve').disabled=true;
+    $('msg').textContent='ล็อคผล Solve แล้ว: ไม่วิเคราะห์ใหม่ และผลจะไม่เปลี่ยน';
+  }else{
+    locked=false;lockHL=null;
+    b.textContent='🔓 Lock Solve';b.classList.remove('on');
+    $('res').classList.remove('locked');$('vprev').classList.remove('locked');$('solve').disabled=false;
+    $('msg').textContent='ปลดล็อคแล้ว';
+    if(lockDirty){lockDirty=false;reset();}
+    render();
+  }
+};
+// ไฮไลต์บนภาพหน้าจอ: เขียว = การ์ดใน Rack ที่ต้องวาง / ฟ้า = การ์ดบน Board ที่ต้องย้ายจัดใหม่
+function drawHL(){
+  if(!V.base)return;
+  const pc=$('vprev').getContext('2d'),k=V.k;
+  pc.putImageData(V.base,0,0);
+  if(!plan)return;
+  const mark=(t,fill,line)=>{if(!t||!t.s)return;const s=t.s;pc.fillStyle=fill;pc.fillRect(s.x*k,s.y*k,s.w*k,s.h*k);pc.strokeStyle=line;pc.lineWidth=3;pc.strokeRect(s.x*k,s.y*k,s.w*k,s.h*k);};
+  board.forEach(t=>{if(plan.open&&plan.open.some(g=>g.includes(t)))mark(t,'rgba(59,130,246,.55)','#1d4ed8');});
+  rack.forEach((t,i)=>{if(hl[i])mark(t,'rgba(34,197,94,.6)','#15803d');});
+}
+// ===== ตัวอย่างบอร์ดหลัง Solve: คำนวณตำแหน่งแบบเดียวกับปุ่ม Go (ไม่แก้ state) =====
+function planLayout(pl){
+  const fixed=pl.keep.map(t=>({c:t.c,n:t.n,x:t.x,y:t.y,kind:'keep'}));
+  const occ=new Set(fixed.map(t=>t.x+','+t.y)),added=[];
+  const spotOk=(x0,y,len)=>{if(x0<0||x0+len>COLS)return false;for(let k=-1;k<=len;k++)if(occ.has((x0+k)+','+y))return false;return true;};
+  const ov=(s,g)=>{const c={};g.forEach(t=>{const k=key(t);c[k]=(c[k]||0)+1;});let n=0;s.forEach(t=>{if(c[t]>0){c[t]--;n++;}});return n;};
+  const items=pl.ch.map(s=>({s,best:Math.max(0,...pl.open.map(g=>ov(s,g)))})).sort((a,b)=>b.best-a.best||b.s.length-a.s.length);
+  let fallback=false;
+  for(const it of items){
+    let s=it.s,pos=null,G=null,bo=0;
+    pl.open.forEach(g=>{const o=ov(s,g);if(o>bo){bo=o;G=g;}});
+    if(G){
+      if(!s.run){
+        const rem=s.slice(),ord=[];
+        G.slice().sort((a,b)=>a.x-b.x).forEach(t=>{const i=rem.indexOf(key(t));if(i>=0){ord.push(rem[i]);rem.splice(i,1);}});
+        s=ord.concat(rem);
+      }
+      const y=G[0].y,cells=G.filter(t=>!occ.has(t.x+','+t.y));let best=-1;
+      for(let i=0;i<s.length;i++)cells.forEach(t=>{
+        if(key(t)!==s[i])return;
+        const x0=t.x-i;if(!spotOk(x0,y,s.length))return;
+        let m=0;s.forEach((id,j)=>{if(cells.some(u=>u.x===x0+j&&key(u)===id))m++;});
+        if(m>best){best=m;pos={x:x0,y};}
+      });
+      if(!pos)fallback=true;
+    }
+    if(!pos)pos=findSpot(s.length,occ);
+    if(!pos)return{fail:true};
+    s.forEach((t,k)=>{occ.add((pos.x+k)+','+pos.y);added.push({...idTile(t),x:pos.x+k,y:pos.y,id:t,si:items.indexOf(it)});});
+  }
+  // จับคู่การ์ด: stay = อยู่ที่เดิม / move = ย้ายจากบอร์ด (มี fx,fy) / new = มาจาก Rack
+  const oldBy={},addBy={};
+  pl.open.forEach(g=>g.forEach(t=>{const k=key(t);(oldBy[k]=oldBy[k]||[]).push({x:t.x,y:t.y});}));
+  added.forEach(a=>{(addBy[a.id]=addBy[a.id]||[]).push(a);});
+  Object.keys(addBy).forEach(id=>{
+    const A=addBy[id],O=(oldBy[id]||[]).slice();
+    A.forEach(a=>{const i=O.findIndex(o=>o.x===a.x&&o.y===a.y);if(i>=0){O.splice(i,1);a.kind='stay';}});
+    const rest=A.filter(a=>!a.kind),pairs=[];
+    rest.forEach((a,ai)=>O.forEach((o,oi)=>pairs.push([Math.abs(a.x-o.x)+Math.abs(a.y-o.y)*3,ai,oi])));
+    pairs.sort((p,q)=>p[0]-q[0]);
+    const ua=new Set(),uo=new Set();
+    pairs.forEach(([d,ai,oi])=>{if(ua.has(ai)||uo.has(oi))return;ua.add(ai);uo.add(oi);const a=rest[ai],o=O[oi];a.kind='move';a.fx=o.x;a.fy=o.y;});
+    rest.forEach((a,ai)=>{if(!ua.has(ai))a.kind='new';});
+  });
+  return{fixed,added,fallback};
+}
+function applyPlan2(){
+  if(!plan)return;
+  const L=planLayout(plan);
+  if(L.fail){$('msg').textContent='Board ไม่มีที่ว่างพอ ลองย้ายกลุ่มเพื่อเว้นที่ก่อน';return;}
+  const use=plan.rackUse.slice();
+  rack=rack.filter(t=>{const k=key(t);if(use[k]>0){use[k]--;return false;}return true;});
+  board=L.fixed.concat(L.added).map(t=>({c:t.c,n:t.n,x:t.x,y:t.y}));
+  reset();render();
+  $('msg').textContent='ย้ายการ์ดจาก Rack ไปจัดบน Board แล้ว'+(L.fallback?' · บางกลุ่มต่อที่เดิมไม่ได้ (ชนกลุ่มอื่น) จึงย้ายไปที่ว่าง':'');
+}
+function groupsOf(ts){
+  const rows={};ts.forEach(t=>(rows[t.y]=rows[t.y]||[]).push(t));const out=[];
+  Object.values(rows).forEach(r=>{r.sort((a,b)=>a.x-b.x);let g=[r[0]];for(let i=1;i<r.length;i++){if(r[i].x===r[i-1].x+1)g.push(r[i]);else{out.push(g);g=[r[i]];}}out.push(g);});
+  return out;
+}
+function renderPreview(){
+  const wrap=$('pvwrap'),box=$('pvb');
+  if(!plan||plan.rackUse.reduce((a,b)=>a+b,0)<=0){wrap.hidden=true;return;}
+  const L=planLayout(plan);wrap.hidden=false;
+  if(L.fail){box.innerHTML='<div style="color:#fff;padding:8px">Board ไม่มีที่ว่างพอสำหรับตัวอย่าง</div>';$('pvleg').textContent='';return;}
+  const all=L.fixed.concat(L.added),MW=26,MH=33,mv=L.added.filter(a=>a.kind==='move'),nw=L.added.filter(a=>a.kind==='new');
+  let mx=0,my=0;all.concat(board).forEach(t=>{if(t.x>mx)mx=t.x;if(t.y>my)my=t.y;});
+  const W=(mx+1)*MW+4,H=(my+1)*MH+4,occ=new Set(all.map(t=>t.x+','+t.y));
+  let h=`<div class="inner" style="width:${W}px;height:${H}px">`;
+  groupsOf(all).forEach(g=>{h+=`<div class="pgbox" style="left:${g[0].x*MW}px;top:${g[0].y*MH}px;width:${g.length*MW}px;height:${MH}px"></div>`;});
+  mv.forEach(a=>{if(!occ.has(a.fx+','+a.fy))h+=`<div class="pghost" style="left:${a.fx*MW+2}px;top:${a.fy*MH+2}px"></div>`;});
+  all.forEach(t=>{h+=`<div class="ptile ${t.kind}" style="left:${t.x*MW+2}px;top:${t.y*MH+2}px;color:${HEX[t.c]}">${t.n||'★'}</div>`;});
+  h+=`<svg width="${W}" height="${H}" style="position:absolute;left:0;top:0;pointer-events:none;z-index:4"><defs><marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0L8,4L0,8z" fill="#fde047"/></marker></defs>`;
+  mv.forEach(a=>{h+=`<line x1="${a.fx*MW+14}" y1="${a.fy*MH+18}" x2="${a.x*MW+14}" y2="${a.y*MH+18}" stroke="#fde047" stroke-width="1.6" opacity=".85" marker-end="url(#ah)"/>`;});
+  box.innerHTML=h+'</svg></div>';
+  $('pvleg').innerHTML=`🟩 ใส่ใหม่จาก Rack <b>${nw.length}</b> ใบ · 🟦 ย้ายจากบอร์ด <b>${mv.length}</b> ใบ (ลูกศรเหลือง = จากไหนไปไหน · กรอบแดงประ = ที่ว่างลง) · กรอบส้ม = อยู่ที่เดิมแต่กลุ่มเปลี่ยน · จาง = ไม่เปลี่ยน`;
+}
+// ===== ตัวอย่างบอร์ดหลัง Solve แบบใหม่: เลขลำดับขั้น + ดูทีละขั้น + ซูม/ขยายเต็มจอ (ลูกศรแสดงเฉพาะขั้นที่เลือก) =====
+const PV={sel:-1,zoom:40,all:false,m:null};
+const CN=['แดง','ฟ้า','ดำ','ส้ม'],tname=t=>t.n?t.n+' '+CN[t.c]:'โจ๊กเกอร์';
+function pvBuild(){
+  const L=planLayout(plan);if(L.fail)return null;
+  const by={};L.added.forEach(a=>(by[a.si]=by[a.si]||[]).push(a));
+  const steps=Object.values(by).map(ts=>{ts.sort((a,b)=>a.x-b.x);return{ts,nw:ts.filter(t=>t.kind==='new').length};});
+  steps.sort((a,b)=>(b.nw>0)-(a.nw>0)||a.ts[0].y-b.ts[0].y||a.ts[0].x-b.ts[0].x);
+  steps.forEach((s,i)=>{s.i=i;s.ts.forEach(t=>t.step=i);});
+  return{L,steps};
+}
+function renderPreview(){
+  const wrap=$('pvwrap');
+  if(!plan||plan.rackUse.reduce((a,b)=>a+b,0)<=0){wrap.hidden=true;wrap.classList.remove('full');PV.m=null;PV.sel=-1;return;}
+  const m=pvBuild();wrap.hidden=false;
+  if(!m){PV.m=null;$('pvb').innerHTML='<div style="color:#fff;padding:8px">Board ไม่มีที่ว่างพอสำหรับตัวอย่าง</div>';$('pvsteps').innerHTML='';$('pvleg').textContent='';return;}
+  PV.m=m;PV.sel=-1;drawPV();
+}
+function boardBadges(){
+  bEl.querySelectorAll('.pbadge').forEach(e=>e.remove());
+  if(!PV.m)return;
+  PV.m.L.added.forEach(a=>{
+    if(a.kind!=='move'||(PV.sel>=0&&a.step!==PV.sel))return;
+    const s=document.createElement('span');s.className='pbadge';s.textContent=a.step+1;
+    s.style.left=(a.fx*PX-4)+'px';s.style.top=(a.fy*PY-4)+'px';bEl.append(s);
+  });
+}
+function drawPV(){
+  const{L,steps}=PV.m,sel=PV.sel,MW=PV.zoom,MH=Math.round(MW*1.27),tw=MW-4,th=MH-4,fs=Math.round(tw*.55),OX=24,OY=18;
+  const all=L.fixed.concat(L.added),mv=L.added.filter(a=>a.kind==='move'),nw=L.added.filter(a=>a.kind==='new');
+  let mx=0,my=0;all.concat(board).forEach(t=>{if(t.x>mx)mx=t.x;if(t.y>my)my=t.y;});
+  const W=OX+(mx+1)*MW+4,H=OY+(my+1)*MH+4,occ=new Set(all.map(t=>t.x+','+t.y)),X=x=>OX+x*MW,Y=y=>OY+y*MH;
+  let h=`<div class="inner" style="width:${W}px;height:${H}px">`;
+  for(let x=0;x<=mx;x++)h+=`<span class="pax" style="left:${X(x)}px;top:0;width:${MW}px">${x+1}</span>`;
+  for(let y=0;y<=my;y++)h+=`<span class="pax" style="left:0;top:${Y(y)}px;width:${OX}px;line-height:${MH}px">${y+1}</span>`;
+  groupsOf(all).forEach(g=>{h+=`<div class="pgbox" style="left:${X(g[0].x)}px;top:${Y(g[0].y)}px;width:${g.length*MW}px;height:${MH}px"></div>`;});
+  mv.forEach(a=>{if(sel>=0&&a.step!==sel)return;if(!occ.has(a.fx+','+a.fy))h+=`<div class="pghost" style="left:${X(a.fx)+2}px;top:${Y(a.fy)+2}px;width:${tw}px;height:${th}px"><span class="pbadge" style="left:-7px;top:-7px">${a.step+1}</span></div>`;});
+  all.forEach(t=>{
+    const dim=sel>=0&&t.step!==sel;
+    h+=`<div class="ptile ${t.kind||''}${dim?' dim':''}" style="left:${X(t.x)+2}px;top:${Y(t.y)+2}px;width:${tw}px;height:${th}px;font-size:${fs}px;color:${HEX[t.c]}">${t.n||'★'}</div>`;
+    if((t.kind==='new'||t.kind==='move')&&!dim)h+=`<span class="pbadge" style="left:${X(t.x)-4}px;top:${Y(t.y)-4}px">${t.step+1}</span>`;
+  });
+  h+=`<svg width="${W}" height="${H}" style="position:absolute;left:0;top:0;pointer-events:none;z-index:4"><defs><marker id="ah" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="4" markerHeight="4" orient="auto"><path d="M0,0L8,4L0,8z" fill="#fde047" stroke="#000" stroke-width="1"/></marker></defs>`;
+  mv.filter(a=>PV.all||a.step===sel).forEach((a,i)=>{
+    const x1=X(a.fx)+MW/2,y1=Y(a.fy)+MH/2,x2=X(a.x)+MW/2,y2=Y(a.y)+MH/2,dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy)||1,bend=(i%2?1:-1)*Math.min(40,len*.2);
+    const d=`M${x1},${y1} Q${(x1+x2)/2-dy/len*bend},${(y1+y2)/2+dx/len*bend} ${x2},${y2}`;
+    h+=`<path d="${d}" fill="none" stroke="#000" stroke-width="5" opacity=".55"/><path d="${d}" fill="none" stroke="#fde047" stroke-width="2.4" marker-end="url(#ah)"/>`;
+  });
+  $('pvb').innerHTML=h+'</svg></div>';
+  $('pvstep').textContent=sel<0?'ทั้งหมด '+steps.length+' ขั้น':'ขั้นที่ '+(sel+1)+'/'+steps.length;
+  $('pvleg').innerHTML=`🟩 ใส่ใหม่จาก Rack <b>${nw.length}</b> ใบ · 🟦 ย้ายจากบอร์ด <b>${mv.length}</b> ใบ · เลขวงกลม = ลำดับขั้น (เลขเดียวกันขึ้นที่การ์ดบนบอร์ดจริงตำแหน่งเดิม) · กรอบแดงประ = ที่ว่างลง · กรอบส้ม = อยู่ที่เดิมแต่กลุ่มเปลี่ยน · กดที่ขั้นเพื่อดูทีละขั้น (แสดงลูกศรเฉพาะขั้นนั้น)`;
+  $('pvsteps').innerHTML=steps.map(s=>{
+    const chips=s.ts.map(t=>`<span class="chip ${t.kind}" style="color:${HEX[t.c]}">${t.n||'★'}</span>`).join('');
+    const parts=[],ns=s.ts.filter(t=>t.kind==='new'),ms=s.ts.filter(t=>t.kind==='move');
+    if(ns.length)parts.push('ใส่จาก Rack: '+ns.map(tname).join(', '));
+    ms.forEach(t=>parts.push('ย้าย '+tname(t)+' จาก แถว'+(t.fy+1)+' ช่อง'+(t.fx+1)+' → แถว'+(t.y+1)+' ช่อง'+(t.x+1)));
+    if(!ns.length&&!ms.length)parts.push('ตัดการ์ดบางใบออกจากกลุ่ม (ที่เหลือไม่ขยับ)');
+    return `<div class="pst${s.i===sel?' on':''}" data-s="${s.i}"><span class="pn">${s.i+1}</span><div><div>${chips}</div><div>${parts.join(' · ')}</div></div></div>`;
+  }).join('');
+  boardBadges();
+}
+$('pvback').onclick=()=>{if(!PV.m)return;const n=PV.m.steps.length;PV.sel=PV.sel<=0?n-1:PV.sel-1;drawPV();};
+$('pvfwd').onclick=()=>{if(!PV.m)return;const n=PV.m.steps.length;PV.sel=PV.sel>=n-1?0:PV.sel+1;drawPV();};
+$('pvall').onclick=()=>{if(!PV.m)return;PV.sel=-1;drawPV();};
+$('pvzoom').oninput=e=>{PV.zoom=+e.target.value;if(PV.m)drawPV();};
+$('pvarr').onchange=e=>{PV.all=e.target.checked;if(PV.m)drawPV();};
+$('pvfull').onclick=()=>{
+  const w=$('pvwrap'),on=w.classList.toggle('full');$('pvfull').textContent=on?'✕ ปิด':'⛶ ขยาย';
+  PV.zoom=on?56:40;$('pvzoom').value=PV.zoom;if(PV.m)drawPV();
+};
+$('pvsteps').onclick=e=>{const el=e.target.closest('.pst');if(!el||!PV.m)return;const i=+el.dataset.s;PV.sel=PV.sel===i?-1:i;drawPV();};
+$('clear').onclick=()=>{board=[];rack=[];reset();$('msg').textContent='';render();};
+render();
+</script>
+</body>
+</html>
